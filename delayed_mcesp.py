@@ -10,7 +10,7 @@ MCESP for Game-Delayed Reinforcements
 """
 
 class MCESP_D:
-    def __init__(self, observations, max_filler, field = np.zeros((1,1))):
+    def __init__(self, observations, max_filler = 0, field = np.zeros((1,1))):
         """
         Constructor for MCESP-D. Field integration currently stubbed.
 
@@ -26,26 +26,39 @@ class MCESP_D:
         self.actions = 3 # High priority, low priority, none
         self.observations = observations
         self.max_filler = max_filler
-        self.q_table = np.zeros((observations,actions))
-        self.c = 0
-        set_prior(field)
+        self.q_table = np.zeros((self.observations,self.actions))
+        self.c_table = np.zeros((self.observations,self.actions))
+        self.set_prior(field)
 
-    def set_prior(field):
+    def set_prior(self,field):
         """
         Set the initial observation discretization to the dimentionality of observations.
         Initially set discretization factor to uniform. Set discretization learning rate to 1.
         """
-        self.observation_thresholds = [i/o for i in range(0,observations)]
+        self.observation_thresholds = [i/self.observations for i in range(0,self.observations)]
         self.observation_samples = 1
         # TODO: For use after integrating image processing with MCESP for Game-Delayed Reinforcements
         # self.norm = field.max()
 
-    def update_reward(observation, action, reward):
+    def update_reward(self,observation, action, reward):
         """
         Update the Q-table when a delayed reward is received from a subsequent layer.
         """
-        self.q_table[observation,action] = (1 - 1/(1+c)) * self.q_table[action,observation] + (1/(1+c)) * r # Canonical Q-update
-        self.c += 1
+        self.q_table[observation,action] = (1 - self.count(observation,action)) * self.q_table[observation,action] + self.count(observation,action) * reward # Canonical Q-update
+        self.increment_count(observation,action)
 
-    def act(observation):
-        return(np.argmax(q_table[observation]))
+    def count(self,observation, action):
+        """
+        Q-learning learning schedule.
+        """
+        return(1/(1+self.c_table[observation,action]))
+
+    def increment_count(self,observation,action):
+        self.c_table[observation,action] += 1
+
+    def act(self,observation):
+        """
+        Return the current learned max action for this layer. If there's a tie, pick randomly.
+        """
+        maximum_actions = np.argwhere(self.q_table[observation] == np.amax(self.q_table[observation])).flatten()
+        return(np.random.choice(maximum_actions))

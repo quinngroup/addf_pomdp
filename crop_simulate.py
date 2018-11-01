@@ -1,9 +1,4 @@
-# Driver packages
 import numpy as np
-from numpy.linalg import norm
-import sys
-import glob
-import re
 from random import randint
 from random import random
 
@@ -37,9 +32,7 @@ class CropField:
 
     def create_observation_function(self, n_observation):
         """
-        Instantiate the observation function.
-
-        The layer of the agent makes stresses harder to distinguish.
+        Instantiate the observation function. The layer of the agent makes stresses harder to distinguish.
         """
         self.o = np.array([self.create_observation_function_layer(n_observation, i) for i in range(1,4)])
 
@@ -53,9 +46,7 @@ class CropField:
 
     def create_transition_function(self):
         """
-        Instantiate the transition function.
-
-        Actions don't affect the state transition. States are less likely to transition later in the growing season.
+        Instantiate the transition function. Actions don't affect the state transition. States are less likely to transition later in the growing season.
         """
         t = []
         persist = np.array([0.5, 0.5]) # Initial likelihood the state persists

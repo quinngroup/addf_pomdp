@@ -1,9 +1,4 @@
-# Driver packages
 import numpy as np
-from numpy.linalg import norm
-import sys
-import glob
-import re
 
 """
 MCESP for Game-Delayed Reinforcements
@@ -26,7 +21,7 @@ class MCESP_D:
         self.actions = 3 # High priority, low priority, none
         self.observations = observations
         self.max_filler = max_filler
-        self.q_table = np.zeros((self.observations,self.actions))
+        self.q_table = np.ones((self.observations,self.actions))
         self.c_table = np.zeros((self.observations,self.actions))
         self.set_prior(field)
 
@@ -40,7 +35,7 @@ class MCESP_D:
         # TODO: For use after integrating image processing with MCESP for Game-Delayed Reinforcements
         # self.norm = field.max()
 
-    def update_reward(self,observation, action, reward):
+    def update_reward(self, observation, action, reward):
         """
         Update the Q-table when a delayed reward is received from a subsequent layer.
         """

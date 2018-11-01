@@ -50,7 +50,7 @@ class CropField:
         """
         t = []
         persist = np.array([0.5, 0.5]) # Initial likelihood the state persists
-        for i in range(1,24):
+        for i in range(1,25):
             modified = np.array([persist[0]*i,persist[1]])
             modified = modified/modified.sum()
             t.append([modified, list(reversed(modified))])

@@ -18,7 +18,7 @@ class MCESP_D:
         field : array, shape (H, W)
             A NumPy grayscale image
         """
-        self.actions = 3 # High priority, low priority, none
+        self.actions = 2
         self.observations = observations
         self.max_filler = max_filler
         self.q_table = np.ones((self.observations,self.actions))

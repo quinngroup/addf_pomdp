@@ -5,7 +5,7 @@ MCESP for Game-Delayed Reinforcements
 """
 
 class MCESP_D:
-    def __init__(self, observations, max_filler = 0, field = np.zeros((1,1))):
+    def __init__(self, observations, field = np.zeros((1,1))):
         """
         Constructor for MCESP-D. Field integration currently stubbed.
 
@@ -13,14 +13,11 @@ class MCESP_D:
         ----------
         observations : int
             The allowed specificity of stress levels
-        max_filler : int
-            (Heuristic) The number of call-to-actions to be passed down when a stress is _not_ detected
         field : array, shape (H, W)
             A NumPy grayscale image
         """
         self.actions = 2
         self.observations = observations
-        self.max_filler = max_filler
         self.q_table = np.ones((self.observations,self.actions))
         self.c_table = np.zeros((self.observations,self.actions))
         self.set_prior(field)

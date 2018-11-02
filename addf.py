@@ -1,5 +1,6 @@
 import numpy as np
 from pyfiglet import figlet_format
+from random import random
 
 # ADDF Classes
 from delayed_mcesp import MCESP_D
@@ -33,6 +34,7 @@ class ADDF:
         self.slow_wait = 0
         self.slow_queue = [] # Queue of sectors for the slow agent
         self.accuracy = np.zeros((2,4)) # Accuracy metrics for both agents
+        self.workload = 10 # Exponential decay factor for extra work - higher promotes more extra work
 
         # Welcome to ADDF!
         print("-------------------------------------------------------------------------------------------------")
@@ -71,6 +73,17 @@ class ADDF:
             print("\tNegatives: "+str(int(self.accuracy[j][1]+self.accuracy[j][3])))
 
     """
+    Return a list of extra work to do dependent on the queue load the subsequent layer has.
+    """
+    def extra_work(self, extras):
+        work = []
+        for extra in extras:
+            extra_probability = self.workload/(self.workload + len(self.slow_queue) + len(work))
+            if random() <= extra_probability:
+                work += [extra]
+        return(work)
+
+    """
     -------------------------------------------------------------------------------------------------
     Simulation steps
     -------------------------------------------------------------------------------------------------
@@ -79,6 +92,14 @@ class ADDF:
         day = self.simulator.day
         print("Day "+str(self.simulator.day+1)+" sectors: [ "+' '.join([self.p_s(s) for s in self.simulator.cur_sectors])+" ]")
 
+        self.fast_phase()
+        self.slow_phase()
+
+        self.fast_wait -= 1
+        self.slow_wait -= 1
+        self.simulator.iterate_states()
+
+    def fast_phase(self):
         if self.fast_wait <= 0: # Fast agent acts!
             self.fast_wait = self.max_wait_fast
             print("\tFast agent acts!")
@@ -93,13 +114,16 @@ class ADDF:
             ctas = [x for x in prioritized_observations if x[0][1]>0]
             extras = [x for x in prioritized_observations if x[0][1]==0]
             print("\t\tFast agent creates CTAs on sectors "+self.p_c(ctas)+" (omitting "+self.p_c(extras)+")")
+            extras_to_do = self.extra_work(extras)
+            print("\t\tSlow agent underworked, adding "+self.p_c(extras_to_do))
 
-            self.slow_queue += ctas
+            self.slow_queue += ctas + extras_to_do
 
             # Update accuracy
             for guess, truth in zip(a, self.simulator.cur_sectors):
                 self.update_accuracy(guess, truth, 0)
 
+    def slow_phase(self):
         if self.slow_wait <= 0 and len(self.slow_queue)>0: # Slow agent acts!
             self.slow_wait = self.max_wait_slow
             print("\tSlow agent acts!")
@@ -114,42 +138,59 @@ class ADDF:
 
             self.update_accuracy(a, true_state, 1)
 
-            # Learning conditions
-            if a == 0: # Slow agent considers fast agent incorrect
-                print("\t\tSlow agent detects no stress")
+            self.learning_phase(a, o_a, sector, true_state, slow_o)
+
+    def learning_phase(self, a, o_a, sector, true_state, slow_o):
+        # Learning conditions
+        if a == 0:
+            print("\t\tSlow agent detects no stress")
+
+            # TODO: This should be probabilistic on the oracle's workload
+            print("\tSlow agent learns!")
+            if true_state == 0:
+                print("\t\tNo stress exists")
+                reward = 1 - a
+                self.slow.update_reward(slow_o,a,reward)
+                print("\t\tAction "+self.p_a(a)+" for observation "+str(slow_o)+" gets reward "+str(reward))
 
                 print("\tFast agent learns!")
                 reward = 1 - o_a[1]
                 self.fast.update_reward(o_a[0],o_a[1],reward)
                 print("\t\tAction "+self.p_a(o_a[1])+" for observation "+str(o_a[0])+" gets reward "+str(reward))
             else:
-                print("\t\tSlow agent predicts a stress")
+                print("\t\tStress missed")
+                reward = a
+                self.slow.update_reward(slow_o,a,reward)
+                print("\t\tAction "+self.p_a(a)+" for observation "+str(slow_o)+" gets reward "+str(reward))
 
-                print("\tSlow agent learns!")
-                if true_state == 0:
-                    print("\t\tNo stress exists")
-                    reward = 1 - a
-                    self.slow.update_reward(slow_o,a,reward)
-                    print("\t\tAction "+self.p_a(a)+" for observation "+str(slow_o)+" gets reward "+str(reward))
+                print("\tFast agent learns!")
+                reward = o_a[1]
+                self.fast.update_reward(o_a[0],o_a[1],reward)
+                print("\t\tAction "+self.p_a(o_a[1])+" for observation "+str(o_a[0])+" gets reward "+str(reward))
+        else:
+            print("\t\tSlow agent predicts a stress")
 
-                    print("\tFast agent learns!")
-                    reward = 1 - o_a[1]
-                    self.fast.update_reward(o_a[0],o_a[1],reward)
-                    print("\t\tAction "+self.p_a(o_a[1])+" for observation "+str(o_a[0])+" gets reward "+str(reward))
-                else:
-                    print("\t\tStress identified")
-                    reward = a
-                    self.slow.update_reward(slow_o,a,reward)
-                    print("\t\tAction "+self.p_a(a)+" for observation "+str(slow_o)+" gets reward "+str(reward))
-                    
-                    print("\tFast agent learns!")
-                    reward = o_a[1]
-                    self.fast.update_reward(o_a[0],o_a[1],reward)
-                    print("\t\tAction "+self.p_a(o_a[1])+" for observation "+str(o_a[0])+" gets reward "+str(reward))
+            print("\tSlow agent learns!")
+            if true_state == 0:
+                print("\t\tNo stress exists")
+                reward = 1 - a
+                self.slow.update_reward(slow_o,a,reward)
+                print("\t\tAction "+self.p_a(a)+" for observation "+str(slow_o)+" gets reward "+str(reward))
 
-        self.fast_wait -= 1
-        self.slow_wait -= 1
-        self.simulator.iterate_states()
+                print("\tFast agent learns!")
+                reward = 1 - o_a[1]
+                self.fast.update_reward(o_a[0],o_a[1],reward)
+                print("\t\tAction "+self.p_a(o_a[1])+" for observation "+str(o_a[0])+" gets reward "+str(reward))
+            else:
+                print("\t\tStress identified")
+                reward = 1
+                self.slow.update_reward(slow_o,a,reward)
+                print("\t\tAction "+self.p_a(a)+" for observation "+str(slow_o)+" gets reward "+str(reward))
+                
+                print("\tFast agent learns!")
+                reward = o_a[1]
+                self.fast.update_reward(o_a[0],o_a[1],reward)
+                print("\t\tAction "+self.p_a(o_a[1])+" for observation "+str(o_a[0])+" gets reward "+str(reward))
 
     """
     -------------------------------------------------------------------------------------------------
@@ -179,7 +220,7 @@ class ADDF:
     """
     def test(self):
         """
-        20 farms, 2 growing seasons, 30 years
+        20 farms, 5 sectors, 30 years with 2 growing seasons each
         """
         for _ in range(0,300):
             for i in range(0,90):
